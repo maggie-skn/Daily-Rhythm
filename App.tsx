@@ -489,7 +489,17 @@ const getSleepColor = (log: DailyLog) => {
         return 'bg-violet-300'; // Visible violet for grid
     }
     
-    return 'bg-purple-400'; // Visible purple for grid
+    return 'bg-purple-100'; // Softer purple for late sleep
+}
+
+// Logic to determine color for Water cells
+const getWaterColor = (log: DailyLog) => {
+    if (log.waterClicks <= 0) return null;
+    const volume = log.waterClicks * APP_CONFIG.waterSipSize;
+    if (volume >= 2000) {
+        return 'bg-blue-500'; // Stronger blue for target reached
+    }
+    return 'bg-sky-400'; // Standard blue for below target
 }
 
 const MonthGrid = ({ 
@@ -571,6 +581,9 @@ const CalendarView = ({
     const getColor = (log: DailyLog) => {
         if (metric === 'sleep') {
             return getSleepColor(log);
+        }
+        if (metric === 'water') {
+            return getWaterColor(log);
         }
         // Default behavior for other metrics
         return checkMetric(log, metric) ? defaultColor : null;
