@@ -1,7 +1,7 @@
 
 
 export const APP_CONFIG = {
-  waterSipSize: 300, // ml
+  waterSipSize: 350, // ml
   targetSleepStart: "22:30",
   targetSleepEnd: "23:30",
 };
