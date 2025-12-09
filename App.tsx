@@ -697,27 +697,36 @@ const HistoryDetail = () => {
         const logs = loadLogs();
         const today = new Date();
         const dates = [];
+        
+        // Helper to format Date to YYYY-MM-DD in local time
+        // This avoids the UTC issue where 00:00 local time becomes previous day in UTC
+        const getLocalYMD = (d: Date) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
 
         if (range === 'week') {
             // Start of week (Sunday)
             const startOfWeek = new Date(today);
-            const day = startOfWeek.getDay(); // 0 is Sunday
-            startOfWeek.setDate(today.getDate() - day);
+            const dayOfWeek = startOfWeek.getDay(); // 0 is Sunday
+            startOfWeek.setDate(today.getDate() - dayOfWeek);
             
             for (let i = 0; i < 7; i++) {
                 const d = new Date(startOfWeek);
                 d.setDate(startOfWeek.getDate() + i);
-                dates.push(d.toISOString().split('T')[0]);
+                dates.push(getLocalYMD(d));
             }
         } else {
-            // Start of month
+            // Start of current month
             const year = today.getFullYear();
             const month = today.getMonth();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             
             for (let i = 1; i <= daysInMonth; i++) {
                 const d = new Date(year, month, i);
-                dates.push(d.toISOString().split('T')[0]);
+                dates.push(getLocalYMD(d));
             }
         }
         
@@ -870,13 +879,13 @@ const HistoryDetail = () => {
                         onClick={() => setRange('week')}
                         className={`px-3 py-1 text-xs rounded-lg transition-all ${range === 'week' ? 'bg-white shadow-sm text-gentle-text font-medium' : 'text-stone-400'}`}
                     >
-                        7天
+                        週
                     </button>
                     <button 
                         onClick={() => setRange('month')}
                         className={`px-3 py-1 text-xs rounded-lg transition-all ${range === 'month' ? 'bg-white shadow-sm text-gentle-text font-medium' : 'text-stone-400'}`}
                     >
-                        30天
+                        月
                     </button>
                 </div>
             </div>
