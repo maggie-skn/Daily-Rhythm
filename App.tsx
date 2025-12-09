@@ -676,9 +676,6 @@ const HistoryOverview = () => {
                                     <card.icon size={20} />
                                 </div>
                             </div>
-                            {card.done && (
-                                <div className="w-2 h-2 rounded-full bg-stone-300"></div>
-                            )}
                         </div>
                         
                         <div className="mb-2">
