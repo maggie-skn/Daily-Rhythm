@@ -16,7 +16,10 @@ import {
   Move,
   ChevronLeft,
   Sun,
-  Clock
+  Clock,
+  ChevronRight,
+  Trash2,
+  Plus
 } from 'lucide-react';
 
 export const Icons = {
@@ -36,5 +39,8 @@ export const Icons = {
   Back: ChevronLeft,
   Sun: Sun,
   Moon: Moon,
-  Clock: Clock
+  Clock: Clock,
+  Next: ChevronRight,
+  Delete: Trash2,
+  Add: Plus
 };

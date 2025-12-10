@@ -43,6 +43,13 @@ const TIME_OPTIONS = (() => {
     return options;
 })();
 
+const getLocalYMD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 // --- Components ---
 
 const ExerciseModal = ({ 
@@ -50,13 +57,15 @@ const ExerciseModal = ({
   onClose, 
   onSave, 
   initialMinutes = 10,
-  initialType = 'stretch'
+  initialType = 'stretch',
+  dateLabel
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
   onSave: (type: 'active' | 'stretch', minutes: number) => void;
   initialMinutes?: number;
   initialType?: 'active' | 'stretch' | undefined;
+  dateLabel?: string;
 }) => {
   const [type, setType] = useState<'active' | 'stretch'>(initialType || 'stretch');
   const [minutes, setMinutes] = useState(initialMinutes);
@@ -71,11 +80,14 @@ const ExerciseModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-6 slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300">
         
         <div className="flex justify-between items-center">
-            <h3 className="text-xl font-serif font-bold text-gentle-text">{UI_TEXT.exercise.modalTitle}</h3>
+            <div>
+                <h3 className="text-xl font-serif font-bold text-gentle-text">{UI_TEXT.exercise.modalTitle}</h3>
+                {dateLabel && <p className="text-xs text-gentle-subtext mt-1">{dateLabel}</p>}
+            </div>
             <button onClick={onClose} className="text-gentle-subtext hover:text-gentle-text">
                 <Icons.Close size={24} />
             </button>
@@ -137,6 +149,208 @@ const ExerciseModal = ({
       </div>
     </div>
   );
+};
+
+// Generic Edit Log Modal for History
+const EditLogModal = ({
+    isOpen,
+    onClose,
+    date,
+    metric,
+    log,
+    onUpdate
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    date: string;
+    metric: string;
+    log: DailyLog;
+    onUpdate: (updates: Partial<DailyLog>) => void;
+}) => {
+    const [showExercisePicker, setShowExercisePicker] = useState(false);
+
+    if (!isOpen) return null;
+
+    const titleMap: Record<string, string> = {
+        water: UI_TEXT.water.title,
+        exercise: UI_TEXT.exercise.title,
+        hygiene: UI_TEXT.shower.title,
+        sleep: UI_TEXT.sleep.title
+    };
+
+    const handleExerciseSave = (type: 'active' | 'stretch', minutes: number) => {
+        const newExercise: ExerciseLog = {
+            id: Date.now().toString(),
+            type,
+            minutes,
+            timestamp: new Date().toISOString()
+        };
+        const updatedExercises = [...(log.exercises || []), newExercise];
+        onUpdate({ 
+            exerciseStarted: true, 
+            exercises: updatedExercises 
+        });
+        setShowExercisePicker(false);
+    };
+
+    const deleteExercise = (id: string) => {
+        const updatedExercises = (log.exercises || []).filter(e => e.id !== id);
+        onUpdate({ exercises: updatedExercises });
+    };
+
+    const toggleHygiene = (type: 'morning' | 'night') => {
+        const current = log.hygieneLogs || [];
+        const exists = current.some(h => h.type === type);
+        let updated;
+        if (exists) {
+            updated = current.filter(h => h.type !== type);
+        } else {
+            updated = [...current, { id: Date.now().toString(), type, timestamp: new Date().toISOString() }];
+        }
+        onUpdate({ hygieneLogs: updated });
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl slide-in-from-bottom-5 zoom-in-95 duration-300 relative">
+                 <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 className="text-xl font-serif font-bold text-gentle-text">{titleMap[metric]}</h3>
+                        <p className="text-sm text-gentle-subtext">{date}</p>
+                    </div>
+                    <button onClick={onClose} className="text-gentle-subtext hover:text-gentle-text">
+                        <Icons.Close size={24} />
+                    </button>
+                </div>
+
+                {/* Content based on Metric */}
+                <div className="space-y-6">
+                    
+                    {/* WATER */}
+                    {metric === 'water' && (
+                        <div className="flex flex-col items-center">
+                            <div className="text-5xl font-light text-sky-500 mb-2">
+                                {log.waterClicks * APP_CONFIG.waterSipSize} <span className="text-base">ml</span>
+                            </div>
+                            <div className="flex items-center gap-6 mt-4">
+                                <button 
+                                    onClick={() => onUpdate({ waterClicks: Math.max(0, log.waterClicks - 1) })}
+                                    className="w-12 h-12 rounded-full bg-stone-100 text-stone-600 flex items-center justify-center text-xl hover:bg-stone-200"
+                                >
+                                    -
+                                </button>
+                                <span className="text-stone-400 text-sm">每次 {APP_CONFIG.waterSipSize}ml</span>
+                                <button 
+                                    onClick={() => onUpdate({ waterClicks: log.waterClicks + 1 })}
+                                    className="w-12 h-12 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-xl hover:bg-sky-200"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* EXERCISE */}
+                    {metric === 'exercise' && (
+                        <div>
+                             <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+                                {(log.exercises || []).length === 0 && <p className="text-center text-stone-400 py-4">無紀錄</p>}
+                                {(log.exercises || []).map(ex => (
+                                    <div key={ex.id} className="flex justify-between items-center p-3 bg-stone-50 rounded-xl">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${ex.type === 'active' ? 'bg-teal-100 text-gentle-accent' : 'bg-orange-100 text-orange-500'}`}>
+                                                {ex.type === 'active' ? <Icons.Active size={16}/> : <Icons.Stretch size={16}/>}
+                                            </div>
+                                            <span className="text-stone-700 font-medium">
+                                                {ex.type === 'active' ? UI_TEXT.exercise.typeActive : UI_TEXT.exercise.typeStretch}
+                                                <span className="text-stone-400 ml-2 font-normal">{ex.minutes} min</span>
+                                            </span>
+                                        </div>
+                                        <button onClick={() => deleteExercise(ex.id)} className="text-stone-300 hover:text-red-400 p-2">
+                                            <Icons.Delete size={18} />
+                                        </button>
+                                    </div>
+                                ))}
+                             </div>
+                             <button 
+                                onClick={() => setShowExercisePicker(true)}
+                                className="w-full py-3 rounded-xl border border-dashed border-stone-300 text-stone-500 hover:bg-stone-50 flex items-center justify-center gap-2"
+                             >
+                                <Icons.Add size={18} /> 新增活動
+                             </button>
+                        </div>
+                    )}
+
+                    {/* HYGIENE */}
+                    {metric === 'hygiene' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <button 
+                                onClick={() => toggleHygiene('morning')}
+                                className={`py-4 rounded-2xl flex flex-col items-center gap-2 transition-all border ${
+                                    (log.hygieneLogs || []).some(h => h.type === 'morning')
+                                    ? 'bg-orange-50 border-orange-200 text-orange-500' 
+                                    : 'bg-white border-stone-100 text-stone-400 hover:bg-stone-50'
+                                }`}
+                            >
+                                <Icons.Sun size={32} />
+                                <span className="font-medium">晨間</span>
+                            </button>
+                            <button 
+                                onClick={() => toggleHygiene('night')}
+                                className={`py-4 rounded-2xl flex flex-col items-center gap-2 transition-all border ${
+                                    (log.hygieneLogs || []).some(h => h.type === 'night')
+                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-500' 
+                                    : 'bg-white border-stone-100 text-stone-400 hover:bg-stone-50'
+                                }`}
+                            >
+                                <Icons.Moon size={32} />
+                                <span className="font-medium">晚間</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* SLEEP */}
+                    {metric === 'sleep' && (
+                        <div className="space-y-4">
+                             <div className="relative w-full">
+                                <select 
+                                    value={log.sleepTime || ""}
+                                    onChange={(e) => onUpdate({ sleepTime: e.target.value })}
+                                    className="w-full p-4 bg-stone-50 rounded-xl text-center text-xl font-medium text-stone-700 appearance-none outline-none focus:ring-2 focus:ring-indigo-100"
+                                >
+                                    <option value="">未記錄</option>
+                                    {TIME_OPTIONS.map(t => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-stone-400">
+                                    <Icons.Clock size={20} />
+                                </div>
+                             </div>
+                             {log.sleepTime && (
+                                 <button 
+                                    onClick={() => onUpdate({ sleepTime: null })}
+                                    className="w-full py-2 text-stone-400 text-sm hover:text-red-400 transition-colors"
+                                 >
+                                     清除紀錄
+                                 </button>
+                             )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Nested Modal for Exercise Picker */}
+                {metric === 'exercise' && (
+                    <ExerciseModal 
+                        isOpen={showExercisePicker}
+                        onClose={() => setShowExercisePicker(false)}
+                        onSave={handleExerciseSave}
+                        dateLabel={date}
+                    />
+                )}
+            </div>
+        </div>
+    );
 };
 
 
@@ -508,6 +722,7 @@ const MonthGrid = ({
     logs, 
     metric, 
     getColor,
+    onDayClick,
     emptyClass = "bg-stone-100" 
 }: { 
     year: number, 
@@ -515,6 +730,7 @@ const MonthGrid = ({
     logs: Record<string, DailyLog>, 
     metric: string, 
     getColor: (log: DailyLog) => string | null, 
+    onDayClick: (date: string) => void,
     emptyClass?: string 
 }) => {
     const days = useMemo(() => {
@@ -531,10 +747,7 @@ const MonthGrid = ({
         
         for (let i = 1; i <= daysInMonth; i++) {
             const d = new Date(year, month, i);
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const dateStr = `${y}-${m}-${day}`;
+            const dateStr = getLocalYMD(d);
             
             const log = getLogForDate(dateStr, logs);
             const color = getColor(log);
@@ -546,16 +759,17 @@ const MonthGrid = ({
 
     return (
         <div className="mb-0">
-            <div className="text-center text-xs text-stone-400 mb-2 font-serif">
-                {year} - {month + 1}
-            </div>
             <div className="grid grid-cols-7 gap-1">
                 {days.map((slot, idx) => {
                     if (!slot) return <div key={`empty-${idx}`} className="w-full aspect-square"></div>;
                     return (
                         <div 
                             key={slot.date}
-                            className={`w-full aspect-square rounded-[2px] transition-colors ${slot.color || emptyClass}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDayClick(slot.date);
+                            }}
+                            className={`w-full aspect-square rounded-[2px] transition-colors cursor-pointer hover:opacity-80 active:scale-90 ${slot.color || emptyClass}`}
                             title={slot.date}
                         ></div>
                     );
@@ -566,18 +780,20 @@ const MonthGrid = ({
 };
 
 const CalendarView = ({ 
+    year,
+    month,
     metric, 
     logs,
-    defaultColor
+    defaultColor,
+    onDayClick
 }: { 
+    year: number,
+    month: number,
     metric: string, 
     logs: Record<string, DailyLog>,
-    defaultColor: string
+    defaultColor: string,
+    onDayClick: (date: string) => void
 }) => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-
     const getColor = (log: DailyLog) => {
         if (metric === 'sleep') {
             return getSleepColor(log);
@@ -592,11 +808,12 @@ const CalendarView = ({
     return (
         <div>
             <MonthGrid 
-                year={currentYear} 
-                month={currentMonth} 
+                year={year} 
+                month={month} 
                 logs={logs} 
                 metric={metric} 
                 getColor={getColor}
+                onDayClick={onDayClick}
             />
         </div>
     );
@@ -606,6 +823,12 @@ const HistoryOverview = () => {
     const navigate = useNavigate();
     const [logs, setLogs] = useState<Record<string, DailyLog>>({});
     const [todayStatus, setTodayStatus] = useState({ water: false, exercise: false, sleep: false, hygiene: false });
+    
+    // Date Navigation State
+    const [currentDate, setCurrentDate] = useState(new Date());
+
+    // Edit Modal State
+    const [editingTarget, setEditingTarget] = useState<{date: string, metric: string} | null>(null);
 
     useEffect(() => {
         const loaded = loadLogs();
@@ -619,6 +842,41 @@ const HistoryOverview = () => {
             hygiene: checkMetric(todayLog, 'hygiene')
         });
     }, []);
+
+    const handleUpdateLog = (updates: Partial<DailyLog>) => {
+        if (!editingTarget) return;
+        
+        const date = editingTarget.date;
+        const currentLog = getLogForDate(date, logs);
+        
+        const newLog = { ...currentLog, ...updates, date };
+        const newLogs = { ...logs, [date]: newLog };
+        
+        setLogs(newLogs);
+        saveLogs(newLogs);
+        
+        // Update today status if we edited today
+        if (date === getTodayDateString()) {
+            setTodayStatus({
+                water: checkMetric(newLog, 'water'),
+                exercise: checkMetric(newLog, 'exercise'),
+                sleep: checkMetric(newLog, 'sleep'),
+                hygiene: checkMetric(newLog, 'hygiene')
+            });
+        }
+    };
+
+    const handlePrevMonth = () => {
+        const newDate = new Date(currentDate);
+        newDate.setMonth(newDate.getMonth() - 1);
+        setCurrentDate(newDate);
+    };
+
+    const handleNextMonth = () => {
+        const newDate = new Date(currentDate);
+        newDate.setMonth(newDate.getMonth() + 1);
+        setCurrentDate(newDate);
+    };
 
     const cards = [
         { 
@@ -659,9 +917,27 @@ const HistoryOverview = () => {
         },
     ];
 
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
     return (
         <div className="pb-24 max-w-md mx-auto px-6 py-8 fade-in">
-             <h1 className="text-2xl font-serif text-gentle-text mb-6 font-bold">歷史回顧</h1>
+             <div className="flex justify-between items-center mb-6">
+                 <h1 className="text-2xl font-serif text-gentle-text font-bold">歷史回顧</h1>
+             </div>
+             
+             {/* Month Navigation */}
+             <div className="flex items-center justify-center gap-6 mb-6">
+                 <button onClick={handlePrevMonth} className="p-2 text-stone-400 hover:text-gentle-text rounded-full hover:bg-stone-100">
+                     <Icons.Back size={20} />
+                 </button>
+                 <span className="text-lg font-serif font-medium text-gentle-text tabular-nums">
+                     {currentYear} - {String(currentMonth + 1).padStart(2, '0')}
+                 </span>
+                 <button onClick={handleNextMonth} className="p-2 text-stone-400 hover:text-gentle-text rounded-full hover:bg-stone-100">
+                     <Icons.Next size={20} />
+                 </button>
+             </div>
              
              <div className="grid grid-cols-2 gap-3">
                 {cards.map(card => (
@@ -684,14 +960,29 @@ const HistoryOverview = () => {
                         
                         <div className="px-0">
                              <CalendarView 
+                                year={currentYear}
+                                month={currentMonth}
                                 metric={card.id} 
                                 logs={logs} 
-                                defaultColor={card.color} 
+                                defaultColor={card.color}
+                                onDayClick={(date) => setEditingTarget({ date, metric: card.id })} 
                              />
                         </div>
                     </div>
                 ))}
              </div>
+
+             {/* Editing Modal */}
+             {editingTarget && (
+                 <EditLogModal 
+                    isOpen={!!editingTarget}
+                    onClose={() => setEditingTarget(null)}
+                    date={editingTarget.date}
+                    metric={editingTarget.metric}
+                    log={getLogForDate(editingTarget.date, logs)}
+                    onUpdate={handleUpdateLog}
+                 />
+             )}
         </div>
     );
 };
@@ -701,6 +992,7 @@ const HistoryDetail = () => {
     const { type } = useParams();
     const navigate = useNavigate();
     const [range, setRange] = useState<'week' | 'month'>('month');
+    const [offset, setOffset] = useState(0); // Offset in weeks or months
     const [data, setData] = useState<any[]>([]);
 
     useEffect(() => {
@@ -708,20 +1000,12 @@ const HistoryDetail = () => {
         const today = new Date();
         const dates = [];
         
-        // Helper to format Date to YYYY-MM-DD in local time
-        // This avoids the UTC issue where 00:00 local time becomes previous day in UTC
-        const getLocalYMD = (d: Date) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
-
         if (range === 'week') {
-            // Start of week (Sunday)
+            // Start of week (Sunday) based on offset
             const startOfWeek = new Date(today);
-            const dayOfWeek = startOfWeek.getDay(); // 0 is Sunday
-            startOfWeek.setDate(today.getDate() - dayOfWeek);
+            const dayOfWeek = startOfWeek.getDay(); 
+            // Calculate base date: Today - DayOfWeek (gets Sunday) + (Offset * 7 days)
+            startOfWeek.setDate(today.getDate() - dayOfWeek + (offset * 7));
             
             for (let i = 0; i < 7; i++) {
                 const d = new Date(startOfWeek);
@@ -729,9 +1013,11 @@ const HistoryDetail = () => {
                 dates.push(getLocalYMD(d));
             }
         } else {
-            // Start of current month
-            const year = today.getFullYear();
-            const month = today.getMonth();
+            // Month View based on offset
+            // Current month + offset
+            const targetDate = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+            const year = targetDate.getFullYear();
+            const month = targetDate.getMonth();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             
             for (let i = 1; i <= daysInMonth; i++) {
@@ -756,12 +1042,8 @@ const HistoryDetail = () => {
                 const [h, m] = log.sleepTime.split(':').map(Number);
                 formattedTime = log.sleepTime;
                 // Convert to "Hours past 20:00" for visualization
-                // 20:00 = 0
-                // 22:00 = 2
-                // 00:00 = 4 (24)
-                // 02:00 = 6 (26)
                 let hourOffset = h;
-                if (h < 12) hourOffset += 24; // Handle next day hours
+                if (h < 12) hourOffset += 24; 
                 sleepTimeVal = hourOffset + (m / 60);
             }
 
@@ -778,7 +1060,7 @@ const HistoryDetail = () => {
             };
         });
         setData(chartData);
-    }, [range, type]);
+    }, [range, type, offset]);
 
     const formatTimeTick = (val: number) => {
         let h = Math.floor(val);
@@ -875,6 +1157,22 @@ const HistoryDetail = () => {
             default: return '詳細資料';
         }
     };
+    
+    // Calculate display label for date range
+    const getDateRangeLabel = () => {
+        const today = new Date();
+        if (range === 'week') {
+            const startOfWeek = new Date(today);
+            const dayOfWeek = startOfWeek.getDay(); 
+            startOfWeek.setDate(today.getDate() - dayOfWeek + (offset * 7));
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            return `${startOfWeek.getMonth()+1}/${startOfWeek.getDate()} - ${endOfWeek.getMonth()+1}/${endOfWeek.getDate()}`;
+        } else {
+            const targetDate = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+            return `${targetDate.getFullYear()} - ${targetDate.getMonth() + 1}`;
+        }
+    };
 
     return (
         <div className="pb-24 max-w-md mx-auto px-6 py-8 fade-in">
@@ -883,16 +1181,28 @@ const HistoryDetail = () => {
             </button>
             
             <div className="flex justify-between items-end mb-6">
-                <h1 className="text-2xl font-serif text-gentle-text font-bold">{getTitle()}</h1>
+                <div>
+                     <h1 className="text-2xl font-serif text-gentle-text font-bold mb-2">{getTitle()}</h1>
+                     <div className="flex items-center gap-2">
+                        <button onClick={() => setOffset(o => o - 1)} className="p-1 rounded-full hover:bg-stone-100 text-stone-400">
+                             <Icons.Back size={16} />
+                        </button>
+                        <span className="text-sm font-medium text-gentle-text tabular-nums">{getDateRangeLabel()}</span>
+                        <button onClick={() => setOffset(o => o + 1)} className="p-1 rounded-full hover:bg-stone-100 text-stone-400">
+                             <Icons.Next size={16} />
+                        </button>
+                     </div>
+                </div>
+                
                 <div className="bg-stone-100 p-1 rounded-xl flex">
                     <button 
-                        onClick={() => setRange('week')}
+                        onClick={() => { setRange('week'); setOffset(0); }}
                         className={`px-3 py-1 text-xs rounded-lg transition-all ${range === 'week' ? 'bg-white shadow-sm text-gentle-text font-medium' : 'text-stone-400'}`}
                     >
                         週
                     </button>
                     <button 
-                        onClick={() => setRange('month')}
+                        onClick={() => { setRange('month'); setOffset(0); }}
                         className={`px-3 py-1 text-xs rounded-lg transition-all ${range === 'month' ? 'bg-white shadow-sm text-gentle-text font-medium' : 'text-stone-400'}`}
                     >
                         月
