@@ -716,6 +716,31 @@ const getWaterColor = (log: DailyLog) => {
     return 'bg-sky-400'; // Standard blue for below target
 }
 
+// Logic to determine color for Exercise cells
+const getExerciseColor = (log: DailyLog) => {
+    if (!log.exercises || log.exercises.length === 0) return null;
+    
+    // Check for mixed types
+    const hasActive = log.exercises.some(e => e.type === 'active');
+    const hasStretch = log.exercises.some(e => e.type === 'stretch');
+
+    if (hasActive && hasStretch) {
+        return 'bg-lime-400'; // Mixed type: Yellowish Green
+    }
+
+    const last = log.exercises[log.exercises.length - 1];
+    // Active -> Lighter Blue-Green (Teal 300), Stretch -> Orange
+    return last.type === 'active' ? 'bg-teal-300' : 'bg-orange-400';
+}
+
+// Logic to determine color for Hygiene cells
+const getHygieneColor = (log: DailyLog) => {
+    if (!log.hygieneLogs || log.hygieneLogs.length === 0) return null;
+    const last = log.hygieneLogs[log.hygieneLogs.length - 1];
+    // Morning -> Orange, Night -> Indigo
+    return last.type === 'morning' ? 'bg-orange-300' : 'bg-indigo-400';
+}
+
 const MonthGrid = ({ 
     year, 
     month, 
@@ -801,7 +826,13 @@ const CalendarView = ({
         if (metric === 'water') {
             return getWaterColor(log);
         }
-        // Default behavior for other metrics
+        if (metric === 'exercise') {
+            return getExerciseColor(log);
+        }
+        if (metric === 'hygiene') {
+            return getHygieneColor(log);
+        }
+        // Default behavior for other metrics (fallback)
         return checkMetric(log, metric) ? defaultColor : null;
     }
     
