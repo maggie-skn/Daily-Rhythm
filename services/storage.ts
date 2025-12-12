@@ -1,4 +1,3 @@
-
 import { DailyLog, DEFAULT_LOG } from '../types';
 
 const STORAGE_KEY = 'gentle_keeper_data_v1';
@@ -30,7 +29,7 @@ export const saveLogs = (logs: Record<string, DailyLog>) => {
 
 export const getLogForDate = (date: string, logs: Record<string, DailyLog>): DailyLog => {
   let log = logs[date];
-  
+
   if (!log) {
     return { ...DEFAULT_LOG, date, exercises: [], hygieneLogs: [] };
   }
@@ -84,6 +83,36 @@ export const calculateTotalDays = (logs: Record<string, DailyLog>): number => {
 };
 
 export const calculateFlow = (logs: Record<string, DailyLog>): number => {
+  // Logic: 3 days of missing data creates a break. Otherwise, it continues.
+  // This is a "Flow" score, not a "Streak".
+  const dates = Object.keys(logs).sort().reverse(); // Newest first
+  if (dates.length === 0) return 0;
+
+  let flowCount = 0;
+  let gapCount = 0;
+  const today = getTodayDateString();
+  
+  // Simple approximation for the demo
+  let currentDate = new Date(today);
+  
+  // Look back 30 days maximum
+  for (let i = 0; i < 30; i++) {
+    const dateStr = currentDate.toISOString().split('T')[0];
+    const log = logs[dateStr];
+
+    // Check new array fields as well
+    const hasActivity = log && (
+      log.waterClicks > 0 || 
+      log.exerciseStarted || 
+      (log.exercises && log.exercises.length > 0) ||
+      (log.hygieneLogs && log.hygieneLogs.length > 0) ||
+      log.sleepTime || 
+      log.isAnimalMode
+    );
+
+    if (hasActivity) {
+      flowCount++;
+      gapCount = 0; // Reset gap
   // Logic: 
   // 1. Identify all dates with activity.
   // 2. Sort them chronologically.
@@ -106,6 +135,11 @@ export const calculateFlow = (logs: Record<string, DailyLog>): number => {
     if (!lastDateObj) {
         currentStreak = 1;
     } else {
+      gapCount++;
+    }
+
+    if (gapCount >= 3) {
+      break; // Flow broken after 3 days of silence
         const diffTime = Math.abs(currentDate.getTime() - lastDateObj.getTime());
         // Difference in days (e.g., 1st to 2nd is 1 day diff)
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
@@ -123,9 +157,13 @@ export const calculateFlow = (logs: Record<string, DailyLog>): number => {
             currentStreak = 1;
         }
     }
+
+    // Go back one day
+    currentDate.setDate(currentDate.getDate() - 1);
     lastDateObj = currentDate;
   }
 
+  return flowCount;
   // Final check for the last streak
   return Math.max(maxStreak, currentStreak);
 };
