@@ -17,7 +17,8 @@ import {
   loadLogs, 
   saveLogs, 
   getLogForDate, 
-  calculateFlow 
+  calculateFlow,
+  calculateTotalDays
 } from './services/storage';
 import AnimalMode from './components/AnimalMode';
 import { Icons } from './components/IconComponents';
@@ -48,6 +49,21 @@ const getLocalYMD = (d: Date) => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+};
+
+const addDays = (dateStr: string, days: number): string => {
+  const date = new Date(dateStr);
+  date.setDate(date.getDate() + days);
+  return getLocalYMD(date);
+};
+
+const formatDisplayDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const m = date.getMonth() + 1;
+    const d = date.getDate();
+    const days = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+    const dayName = days[date.getDay()];
+    return `${m}月${d}日 ${dayName}`;
 };
 
 // --- Components ---
@@ -357,32 +373,41 @@ const EditLogModal = ({
 // --- Dashboard Component ---
 const Dashboard = () => {
   const [logs, setLogs] = useState<Record<string, DailyLog>>({});
-  const [todayDate] = useState(getTodayDateString());
+  // Use a display date state for navigation, initialized to today
+  const [displayDate, setDisplayDate] = useState(getTodayDateString());
   const [currentLog, setCurrentLog] = useState<DailyLog>(DEFAULT_LOG);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [showAnimalMode, setShowAnimalMode] = useState(false);
   const [flowCount, setFlowCount] = useState(0);
+  const [totalDays, setTotalDays] = useState(0);
 
   // Local state for UI interactions
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [pendingSleepTime, setPendingSleepTime] = useState("");
 
+  const todayStr = getTodayDateString();
+  const isToday = displayDate === todayStr;
+
   useEffect(() => {
     const loaded = loadLogs();
     setLogs(loaded);
-    const today = getLogForDate(todayDate, loaded);
-    setCurrentLog(today);
+    // Load log for the currently displayed date
+    const log = getLogForDate(displayDate, loaded);
+    setCurrentLog(log);
     setFlowCount(calculateFlow(loaded));
-    setPendingSleepTime(today.sleepTime || "");
-  }, [todayDate]);
+    setTotalDays(calculateTotalDays(loaded));
+    setPendingSleepTime(log.sleepTime || "");
+  }, [displayDate]);
 
   const updateLog = (updates: Partial<DailyLog>) => {
-    const newLog = { ...currentLog, ...updates, date: todayDate };
-    const newLogs = { ...logs, [todayDate]: newLog };
+    // Update log for the displayed date
+    const newLog = { ...currentLog, ...updates, date: displayDate };
+    const newLogs = { ...logs, [displayDate]: newLog };
     setLogs(newLogs);
     setCurrentLog(newLog);
     saveLogs(newLogs);
     setFlowCount(calculateFlow(newLogs));
+    setTotalDays(calculateTotalDays(newLogs));
   };
 
   const showToast = (msg: string) => {
@@ -394,6 +419,14 @@ const Dashboard = () => {
 
   const handleAnimalModeToggle = () => {
     setShowAnimalMode(true);
+  };
+
+  const handlePrevDay = () => {
+      setDisplayDate(prev => addDays(prev, -1));
+  };
+
+  const handleNextDay = () => {
+      setDisplayDate(prev => addDays(prev, 1));
   };
 
   const handleWater = () => {
@@ -510,23 +543,23 @@ const Dashboard = () => {
       />
 
       {/* Header */}
-      <header className="px-6 py-8 flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-serif text-gentle-text font-bold">{UI_TEXT.header}</h1>
-          <p className="text-gentle-subtext text-sm mt-1">{UI_TEXT.subHeader}</p>
-          <div className="flex items-center gap-2 mt-2 text-gentle-accent text-xs font-medium bg-gentle-soft px-3 py-1 rounded-full w-fit">
-            <Icons.Rhythm size={14} />
-            <span>心流：{flowCount} 天</span>
-          </div>
-        </div>
-        
-        <div className="flex flex-col items-center">
-          <button 
-            onClick={handleAnimalModeToggle}
-            className="p-3 rounded-2xl transition-all duration-300 bg-white border border-gentle-border text-gentle-subtext hover:bg-stone-50"
-          >
-            <Icons.Animal size={24} />
-          </button>
+      <header className="px-6 py-6 space-y-4">
+        {/* Top Row: Title + Animal Button */}
+        <div className="flex justify-between items-center">
+            <div>
+                 <h1 className="text-2xl font-serif text-gentle-text font-bold">{UI_TEXT.header}</h1>
+                 <p className="text-gentle-subtext text-sm mt-1">{UI_TEXT.subHeader} {totalDays} 天</p>
+                 <div className="flex items-center gap-2 mt-2 text-gentle-accent text-xs font-medium bg-gentle-soft px-3 py-1 rounded-full w-fit">
+                    <Icons.Rhythm size={14} />
+                    <span>心流：{flowCount} 天</span>
+                </div>
+            </div>
+            <button 
+                onClick={handleAnimalModeToggle}
+                className="p-3 rounded-2xl bg-white border border-gentle-border text-gentle-subtext hover:bg-stone-50 transition-colors"
+            >
+                <Icons.Animal size={24} />
+            </button>
         </div>
       </header>
 
@@ -668,6 +701,29 @@ const Dashboard = () => {
 
       </div>
 
+      {/* Date Navigation - Moved to bottom */}
+      <div className="flex items-center justify-center gap-6 py-8">
+            <button 
+                onClick={handlePrevDay} 
+                className="p-4 rounded-full bg-white shadow-sm border border-gentle-border text-stone-500 hover:bg-stone-50 transition-transform active:scale-95"
+            >
+                <Icons.Back size={24} />
+            </button>
+            <div className="flex flex-col items-center min-w-[120px]">
+                <span className="text-xl font-serif text-gentle-text font-medium">
+                    {formatDisplayDate(displayDate)}
+                </span>
+                {isToday && <span className="text-xs text-gentle-accent font-medium mt-1">今天</span>}
+            </div>
+            <button 
+                onClick={handleNextDay} 
+                disabled={isToday}
+                className={`p-4 rounded-full bg-white shadow-sm border border-gentle-border transition-transform active:scale-95 ${isToday ? 'opacity-50 cursor-not-allowed' : 'hover:bg-stone-50 text-stone-500'}`}
+            >
+                <Icons.Next size={24} />
+            </button>
+      </div>
+
       {/* Feedback Toast */}
       {feedback && (
         <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-stone-800 text-stone-50 px-6 py-3 rounded-full shadow-xl text-sm fade-in z-40 whitespace-nowrap">
@@ -677,6 +733,7 @@ const Dashboard = () => {
     </div>
   );
 };
+
 
 // --- History Overview (Calendar Grid View) ---
 
@@ -1253,10 +1310,9 @@ const HistoryDetail = () => {
 };
 
 
-// --- Main App & Navigation ---
 const App = () => {
-    return (
-        <HashRouter>
+  return (
+    <HashRouter>
             <div className="min-h-screen bg-gentle-bg text-gentle-text font-sans">
                 <Routes>
                     <Route path="/" element={<Dashboard />} />
@@ -1276,8 +1332,8 @@ const App = () => {
                     </div>
                 </nav>
             </div>
-        </HashRouter>
-    );
+    </HashRouter>
+  );
 };
 
 export default App;
