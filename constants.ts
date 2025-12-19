@@ -1,5 +1,4 @@
 
-
 export const APP_CONFIG = {
   waterSipSize: 350, // ml
   targetSleepStart: "22:30",
@@ -29,6 +28,7 @@ export const UI_TEXT = {
     modalTitle: "選擇活動形式",
     typeActive: "運動",
     typeStretch: "伸展",
+    typeSkate: "溜冰",
     minutesLabel: "時間 (分鐘)",
     save: "記錄",
     cancel: "取消",

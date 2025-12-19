@@ -1,7 +1,7 @@
 
 export interface ExerciseLog {
   id: string;
-  type: 'active' | 'stretch';
+  type: 'active' | 'stretch' | 'skate';
   minutes: number;
   timestamp: string;
 }
@@ -19,7 +19,7 @@ export interface DailyLog {
   // Legacy fields (kept for migration)
   exerciseStarted?: boolean; 
   exerciseMinutes?: number; 
-  exerciseType?: 'active' | 'stretch'; 
+  exerciseType?: 'active' | 'stretch' | 'skate'; 
   showerType?: 'none' | 'night' | 'morning';
 
   // New array fields for multiple entries

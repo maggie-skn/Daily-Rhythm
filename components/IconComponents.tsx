@@ -22,6 +22,27 @@ import {
   Plus
 } from 'lucide-react';
 
+// Custom Skate Icon as RollerSkating is not available in all versions of lucide-react
+const SkateIcon = ({ size = 24, strokeWidth = 2, ...props }: any) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M4 7h11l2 3h4a1 1 0 0 1 1 1v3a2 2 0 0 1-2 2h-2" />
+    <path d="M4 7c-1.1 0-2 .9-2 2v5a2 2 0 0 0 2 2h11" />
+    <circle cx="5" cy="19" r="2" />
+    <circle cx="12" cy="19" r="2" />
+    <circle cx="19" cy="19" r="2" />
+  </svg>
+);
+
 export const Icons = {
   Water: Droplets,
   Exercise: Footprints,
@@ -42,5 +63,6 @@ export const Icons = {
   Clock: Clock,
   Next: ChevronRight,
   Delete: Trash2,
-  Add: Plus
+  Add: Plus,
+  Skate: SkateIcon
 };
